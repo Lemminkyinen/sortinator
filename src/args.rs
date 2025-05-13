@@ -44,6 +44,7 @@ impl Arguments {
         } else {
             let path = PathBuf::from(&self.path);
 
+            // TODO: check is_dir as well
             if !path.exists() {
                 return Err(ArgError::PathDoesntExist(self.path.clone()));
             }
