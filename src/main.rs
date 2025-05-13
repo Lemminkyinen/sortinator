@@ -2,8 +2,10 @@ mod args;
 
 use args::{ArgError, Arguments, SortingTypeBy};
 use clap::Parser;
-use std::fs::read_dir;
-use std::path::PathBuf;
+use std::collections::HashMap;
+use std::fs::{File, read_dir};
+use std::io::Cursor;
+use std::path::{Path, PathBuf};
 
 fn main() -> Result<(), anyhow::Error> {
     let args = Arguments::parse();
@@ -36,6 +38,11 @@ fn main() -> Result<(), anyhow::Error> {
     Ok(())
 }
 
+fn read_yaml(path: &Path) -> Result<HashMap<String, Vec<String>>, anyhow::Error> {
+    let file = File::open(path)?;
+    Ok(serde_yml::from_reader(file)?)
+}
+
 fn sort_by_type(path: PathBuf) -> Result<(), anyhow::Error> {
     // Read all the files in the path
     let items = read_dir(&path)?.flatten().filter_map(|item| {
@@ -48,6 +55,10 @@ fn sort_by_type(path: PathBuf) -> Result<(), anyhow::Error> {
     let picture_types = ["jpg", "png"];
     let document_types = ["pdf", "txt"];
     let code_types = ["rs", "py"];
+
+    let p = Path::new("../file_types.yml");
+    let res = read_yaml(p)?;
+    println!("{:?}", res);
 
     let mut pictures = Vec::new();
     let mut documents = Vec::new();

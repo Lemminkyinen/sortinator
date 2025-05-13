@@ -1,0 +1,9 @@
+pictures:
+  - "jpg"
+  - "png"
+documents:
+  - "txt"
+  - "pdf"
+code:
+  - "rs"
+  - "py"
