@@ -4,11 +4,13 @@ use args::{ArgError, Arguments, SortingTypeBy};
 use clap::Parser;
 use std::collections::HashMap;
 use std::fs::{File, read_dir};
-use std::io::Cursor;
 use std::path::{Path, PathBuf};
 
 fn main() -> Result<(), anyhow::Error> {
     let args = Arguments::parse();
+
+    // Get supported file types, that will be used to sort files
+    let file_types = get_files_types(None)?;
 
     let sorting_type = args.get_sorting_type();
 
@@ -28,11 +30,17 @@ fn main() -> Result<(), anyhow::Error> {
         }
     };
 
-    match sorting_type {
-        SortingTypeBy::Type => {
-            sort_by_type(path)?;
-        }
+    let organized_files = match sorting_type {
+        SortingTypeBy::Type => sort_by_type(path, file_types)?,
         _ => todo!(),
+    };
+
+    // DEBUG PRINT
+    for (item_type, file_extensions) in organized_files {
+        println!(
+            "Item type: {}, file extensions: {:?}",
+            item_type, file_extensions
+        );
     }
 
     Ok(())
@@ -43,79 +51,63 @@ fn read_yaml(path: &Path) -> Result<HashMap<String, Vec<String>>, anyhow::Error>
     Ok(serde_yml::from_reader(file)?)
 }
 
-fn sort_by_type(path: PathBuf) -> Result<(), anyhow::Error> {
+// TODO support optional path from arguments
+// TODO if not found, return default
+fn get_files_types(path: Option<&Path>) -> Result<HashMap<String, Vec<String>>, anyhow::Error> {
+    let yaml = read_yaml(Path::new("file_types.yml"))?;
+    Ok(yaml)
+}
+
+fn sort_by_type(
+    path: PathBuf,
+    file_type_map: HashMap<String, Vec<String>>,
+) -> Result<HashMap<String, Vec<PathBuf>>, anyhow::Error> {
     // Read all the files in the path
-    let items = read_dir(&path)?.flatten().filter_map(|item| {
-        let path = item.path();
-        if path.is_file() { Some(path) } else { None }
-    });
+    let mut items = read_dir(&path)?
+        .flatten()
+        .filter_map(|item| {
+            let path = item.path();
+            if path.is_file() { Some(path) } else { None }
+        })
+        .collect::<Vec<_>>();
 
-    // Collection for handled types
-    // TODO conf file
-    let picture_types = ["jpg", "png"];
-    let document_types = ["pdf", "txt"];
-    let code_types = ["rs", "py"];
+    let mut organized_files: HashMap<String, Vec<_>> = HashMap::new();
 
-    let p = Path::new("../file_types.yml");
-    let res = read_yaml(p)?;
-    println!("{:?}", res);
-
-    let mut pictures = Vec::new();
-    let mut documents = Vec::new();
-    let mut code_files = Vec::new();
     let mut other = Vec::new();
 
-    for item in items {
-        match item.extension() {
-            Some(ext) => {
-                if picture_types.contains(&ext.to_str().unwrap()) {
-                    pictures.push(item);
+    // Collection for handled types
+    for (item_type, file_extensions) in file_type_map {
+        let mut item_collection = Vec::new();
+
+        let mut i = 0;
+        while i < items.len() {
+            match items[i].extension() {
+                Some(ext) => {
+                    if file_extensions.contains(&ext.to_string_lossy().to_string()) {
+                        item_collection.push(items.remove(i));
+                        continue;
+                    } else {
+                        // pass; i+=1;
+                    }
+                }
+                None => {
+                    other.push(items.remove(i));
                     continue;
                 }
-                if document_types.contains(&ext.to_str().unwrap()) {
-                    documents.push(item);
-                    continue;
-                }
-                if code_types.contains(&ext.to_str().unwrap()) {
-                    code_files.push(item);
-                    continue;
-                }
-                other.push(item);
             }
-            None => {
-                other.push(item);
-            }
+            i += 1;
         }
+
+        organized_files.insert(item_type, item_collection);
     }
 
-    println!(
-        "Pictures: {:?}",
-        pictures
-            .iter()
-            .map(|i| i.file_name().unwrap())
-            .collect::<Vec<_>>()
-    );
-    println!(
-        "Documents: {:?}",
-        documents
-            .iter()
-            .map(|i| i.file_name().unwrap())
-            .collect::<Vec<_>>()
-    );
-    println!(
-        "Code files: {:?}",
-        code_files
-            .iter()
-            .map(|i| i.file_name().unwrap())
-            .collect::<Vec<_>>()
-    );
-    println!(
-        "Other files: {:?}",
-        other
-            .iter()
-            .map(|i| i.file_name().unwrap())
-            .collect::<Vec<_>>()
-    );
+    // Check items vector for unsorted items
+    if !items.is_empty() {
+        other.extend(items);
+    }
 
-    Ok(())
+    // Add other to organized files
+    organized_files.insert(String::from("Other"), other);
+
+    Ok(organized_files)
 }

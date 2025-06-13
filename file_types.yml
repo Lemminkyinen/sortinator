@@ -1,6 +1,8 @@
-pictures:
+images:
   - "jpg"
   - "png"
+raw_images:
+  - "nef"
 documents:
   - "txt"
   - "pdf"
