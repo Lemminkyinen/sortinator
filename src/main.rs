@@ -3,7 +3,7 @@ mod args;
 use args::{ArgError, Arguments, SortingTypeBy};
 use clap::Parser;
 use std::collections::HashMap;
-use std::fs::{File, read_dir};
+use std::fs::{File, create_dir, read_dir, rename};
 use std::path::{Path, PathBuf};
 
 fn main() -> Result<(), anyhow::Error> {
@@ -31,17 +31,11 @@ fn main() -> Result<(), anyhow::Error> {
     };
 
     let organized_files = match sorting_type {
-        SortingTypeBy::Type => sort_by_type(path, file_types)?,
+        SortingTypeBy::Type => sort_by_type(&path, file_types)?,
         _ => todo!(),
     };
 
-    // DEBUG PRINT
-    for (item_type, file_extensions) in organized_files {
-        println!(
-            "Item type: {}, file extensions: {:?}",
-            item_type, file_extensions
-        );
-    }
+    create_folder_organize_files(&path, organized_files)?;
 
     Ok(())
 }
@@ -59,11 +53,11 @@ fn get_files_types(path: Option<&Path>) -> Result<HashMap<String, Vec<String>>, 
 }
 
 fn sort_by_type(
-    path: PathBuf,
+    path: &Path,
     file_type_map: HashMap<String, Vec<String>>,
 ) -> Result<HashMap<String, Vec<PathBuf>>, anyhow::Error> {
     // Read all the files in the path
-    let mut items = read_dir(&path)?
+    let mut items = read_dir(path)?
         .flatten()
         .filter_map(|item| {
             let path = item.path();
@@ -107,7 +101,28 @@ fn sort_by_type(
     }
 
     // Add other to organized files
-    organized_files.insert(String::from("Other"), other);
+    organized_files.insert(String::from("other"), other);
 
     Ok(organized_files)
+}
+
+fn create_folder_organize_files(
+    og_path: &Path,
+    organized_files: HashMap<String, Vec<PathBuf>>,
+) -> Result<(), anyhow::Error> {
+    for (file_type, files) in organized_files {
+        let mut path2 = og_path.to_path_buf();
+        path2.push(file_type);
+        create_dir(path2.as_path())?;
+
+        for file in files {
+            let mut folder_path = path2.clone();
+            if let Some(file_name) = file.file_name() {
+                folder_path.push(file_name);
+                rename(file, &folder_path)?;
+            }
+        }
+    }
+
+    Ok(())
 }
