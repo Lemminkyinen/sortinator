@@ -19,13 +19,15 @@ impl From<IoError> for ArgError {
 pub(crate) enum SortingTypeBy {
     Size,
     Name,
-    Type,
-    Age,
+    FileType,
+    CreatedAt,
+    ModifiedAt,
+    AccessedAt,
 }
 
 #[derive(Debug, Parser)]
 pub(crate) struct Arguments {
-    #[arg(short, long, value_enum, default_value_t = SortingTypeBy::Type)]
+    #[arg(short, long, value_enum, default_value_t = SortingTypeBy::FileType)]
     sorting_type: SortingTypeBy,
 
     // TODO: Use PathBuf?
