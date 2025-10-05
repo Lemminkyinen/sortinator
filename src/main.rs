@@ -7,14 +7,18 @@ use clap::Parser;
 use std::collections::HashMap;
 use std::fs::metadata;
 use std::fs::{File, create_dir, read_dir, rename};
+use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 use time_conversions::IntoNaiveDate;
+
+// Include default types yml in the binary
+const DEFAULT_YML: &str = include_str!("../file_types.yml");
 
 fn main() -> Result<(), anyhow::Error> {
     let args = Arguments::parse();
 
     // Get supported file types, that will be used to sort files
-    let file_types = get_files_types(None)?;
+    let file_types = read_yaml(args.file_type_path.as_deref())?;
 
     let sorting_type = args.get_sorting_type();
 
@@ -49,16 +53,14 @@ fn main() -> Result<(), anyhow::Error> {
     Ok(())
 }
 
-fn read_yaml(path: &Path) -> Result<HashMap<String, Vec<String>>, anyhow::Error> {
-    let file = File::open(path)?;
-    Ok(serde_yml::from_reader(file)?)
-}
-
-// TODO support optional path from arguments
-// TODO if not found, return default
-fn get_files_types(path: Option<&Path>) -> Result<HashMap<String, Vec<String>>, anyhow::Error> {
-    let yaml = read_yaml(Path::new("file_types.yml"))?;
-    Ok(yaml)
+fn read_yaml(path: Option<&Path>) -> Result<HashMap<String, Vec<String>>, anyhow::Error> {
+    match path {
+        Some(path) => {
+            let file = File::open(path)?;
+            Ok(serde_yml::from_reader(file)?)
+        }
+        None => serde_yml::from_str(DEFAULT_YML).map_err(anyhow::Error::from),
+    }
 }
 
 fn read_items(path: &Path) -> Result<Vec<PathBuf>, anyhow::Error> {
@@ -93,8 +95,6 @@ fn sort_by_type(
                     if file_extensions.contains(&ext.to_string_lossy().to_string()) {
                         item_collection.push(items.remove(i));
                         continue;
-                    } else {
-                        // pass; i+=1;
                     }
                 }
                 None => {
@@ -126,7 +126,12 @@ fn create_folder_organize_files(
     for (file_type, files) in organized_files {
         let mut path2 = og_path.to_path_buf();
         path2.push(file_type);
-        create_dir(path2.as_path())?;
+
+        if let Err(e) = create_dir(path2.as_path())
+            && e.kind() != ErrorKind::AlreadyExists
+        {
+            return Err(e.into());
+        };
 
         for file in files {
             let mut folder_path = path2.clone();

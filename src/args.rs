@@ -33,6 +33,10 @@ pub(crate) struct Arguments {
     // TODO: Use PathBuf?
     #[arg(short, long, default_value_t = String::from("curdir"))]
     path: String,
+
+    /// Path to the file that has file type to file extension mapping
+    #[arg(long)]
+    pub(crate) file_type_path: Option<PathBuf>,
 }
 
 impl Arguments {
