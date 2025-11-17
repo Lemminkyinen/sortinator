@@ -40,7 +40,7 @@ fn main() -> Result<(), anyhow::Error> {
 
     // For the hashmap key use a trait that implements a function that gives as a folder name
     let organized_files: HashMap<String, Vec<PathBuf>> = match sorting_type {
-        SortingTypeBy::FileType => sort_by_type(&path, file_types)?,
+        SortingTypeBy::FileType => MetadataSorter::sort_by_type(&path, file_types)?,
         SortingTypeBy::CreatedAt => {
             MetadataSorter::sort_by_created_at(&path)?;
             HashMap::new()
@@ -73,52 +73,6 @@ fn read_items(path: &Path) -> Result<Vec<PathBuf>, anyhow::Error> {
         .collect())
 }
 
-fn sort_by_type(
-    path: &Path,
-    file_type_map: HashMap<String, Vec<String>>,
-) -> Result<HashMap<String, Vec<PathBuf>>, anyhow::Error> {
-    // Read all the files in the path
-    let mut items = read_items(path)?;
-
-    let mut organized_files: HashMap<String, Vec<_>> = HashMap::new();
-
-    let mut other = Vec::new();
-
-    // Collection for handled types
-    for (item_type, file_extensions) in file_type_map {
-        let mut item_collection = Vec::new();
-
-        let mut i = 0;
-        while i < items.len() {
-            match items[i].extension() {
-                Some(ext) => {
-                    if file_extensions.contains(&ext.to_string_lossy().to_string()) {
-                        item_collection.push(items.remove(i));
-                        continue;
-                    }
-                }
-                None => {
-                    other.push(items.remove(i));
-                    continue;
-                }
-            }
-            i += 1;
-        }
-
-        organized_files.insert(item_type, item_collection);
-    }
-
-    // Check items vector for unsorted items
-    if !items.is_empty() {
-        other.extend(items);
-    }
-
-    // Add other to organized files
-    organized_files.insert(String::from("other"), other);
-
-    Ok(organized_files)
-}
-
 fn create_folder_organize_files(
     og_path: &Path,
     organized_files: HashMap<String, Vec<PathBuf>>,
@@ -145,7 +99,7 @@ fn create_folder_organize_files(
     Ok(())
 }
 
-struct MetadataSorter {}
+struct MetadataSorter;
 
 impl MetadataSorter {
     /// Default sorting by day. TODO support hour, day, week, month, quarter, year
@@ -165,5 +119,51 @@ impl MetadataSorter {
         }
 
         Ok(())
+    }
+
+    fn sort_by_type(
+        path: &Path,
+        file_type_map: HashMap<String, Vec<String>>,
+    ) -> Result<HashMap<String, Vec<PathBuf>>, anyhow::Error> {
+        // Read all the files in the path
+        let mut items = read_items(path)?;
+
+        let mut organized_files: HashMap<String, Vec<_>> = HashMap::new();
+
+        let mut other = Vec::new();
+
+        // Collection for handled types
+        for (item_type, file_extensions) in file_type_map {
+            let mut item_collection = Vec::new();
+
+            let mut i = 0;
+            while i < items.len() {
+                match items[i].extension() {
+                    Some(ext) => {
+                        if file_extensions.contains(&ext.to_string_lossy().to_string()) {
+                            item_collection.push(items.remove(i));
+                            continue;
+                        }
+                    }
+                    None => {
+                        other.push(items.remove(i));
+                        continue;
+                    }
+                }
+                i += 1;
+            }
+
+            organized_files.insert(item_type, item_collection);
+        }
+
+        // Check items vector for unsorted items
+        if !items.is_empty() {
+            other.extend(items);
+        }
+
+        // Add other to organized files
+        organized_files.insert(String::from("other"), other);
+
+        Ok(organized_files)
     }
 }
