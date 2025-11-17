@@ -41,10 +41,7 @@ fn main() -> Result<(), anyhow::Error> {
     // For the hashmap key use a trait that implements a function that gives as a folder name
     let organized_files: HashMap<String, Vec<PathBuf>> = match sorting_type {
         SortingTypeBy::FileType => MetadataSorter::sort_by_type(&path, file_types)?,
-        SortingTypeBy::CreatedAt => {
-            MetadataSorter::sort_by_created_at(&path)?;
-            HashMap::new()
-        }
+        SortingTypeBy::CreatedAt => MetadataSorter::sort_by_created_at(&path)?,
         _ => todo!(),
     };
 
@@ -100,31 +97,30 @@ fn create_folder_organize_files(
 }
 
 struct MetadataSorter;
-
+type Sorted = HashMap<String, Vec<PathBuf>>;
 impl MetadataSorter {
     /// Default sorting by day. TODO support hour, day, week, month, quarter, year
-    fn sort_by_created_at(path: &Path) -> Result<(), anyhow::Error> {
+    fn sort_by_created_at(path: &Path) -> Result<Sorted, anyhow::Error> {
         let items = read_items(path)?;
 
-        let mut sorted_paths: HashMap<NaiveDate, Vec<PathBuf>> = HashMap::new();
+        let mut sorted_paths: Sorted = HashMap::new();
 
         for item in items {
             let mdata = metadata(&item)?;
             let created_date = mdata.into_created_at();
-            sorted_paths.entry(created_date).or_default().push(item);
+            sorted_paths
+                .entry(created_date.to_string())
+                .or_default()
+                .push(item);
         }
 
-        for (date, paths) in sorted_paths {
-            println!("For date {date}, found items {paths:?}")
-        }
-
-        Ok(())
+        Ok(sorted_paths)
     }
 
     fn sort_by_type(
         path: &Path,
         file_type_map: HashMap<String, Vec<String>>,
-    ) -> Result<HashMap<String, Vec<PathBuf>>, anyhow::Error> {
+    ) -> Result<Sorted, anyhow::Error> {
         // Read all the files in the path
         let mut items = read_items(path)?;
 
