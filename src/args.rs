@@ -37,6 +37,10 @@ pub(crate) struct Arguments {
     /// Path to the file that has file type to file extension mapping
     #[arg(long)]
     pub(crate) file_type_path: Option<PathBuf>,
+
+    /// Dry-run, show the organized files
+    #[arg(long)]
+    pub(crate) check: bool,
 }
 
 impl Arguments {

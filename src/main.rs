@@ -1,8 +1,8 @@
 mod args;
 mod time_conversions;
 
+use anyhow::anyhow;
 use args::{ArgError, Arguments, SortingTypeBy};
-use chrono::NaiveDate;
 use clap::Parser;
 use std::collections::HashMap;
 use std::fs::metadata;
@@ -45,7 +45,31 @@ fn main() -> Result<(), anyhow::Error> {
         _ => todo!(),
     };
 
-    create_folder_organize_files(&path, organized_files)?;
+    if args.check {
+        let mut vec = organized_files
+            .iter()
+            .collect::<Vec<(&String, &Vec<PathBuf>)>>();
+        vec.sort_by(|(a, _), (b, _)| a.cmp(b));
+
+        // YAML decoder? :D
+        for (p, items) in vec {
+            if !items.is_empty() {
+                let path = path.canonicalize()?.join(p);
+                println!("Path: {}", path.to_string_lossy());
+                println!("  Items:");
+                for item in items {
+                    println!(
+                        "    - {}",
+                        item.file_name()
+                            .ok_or_else(|| anyhow!("No file name!"))?
+                            .to_string_lossy()
+                    );
+                }
+            }
+        }
+    } else {
+        create_folder_organize_files(&path, organized_files)?;
+    }
 
     Ok(())
 }
